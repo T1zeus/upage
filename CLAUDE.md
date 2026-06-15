@@ -38,6 +38,12 @@ pnpm typecheck           # Generate React Router types + run tsc
 # Testing
 pnpm test                # Run Vitest once
 pnpm test:watch          # Run Vitest in watch mode
+pnpm test <path|pattern> # Run a single test file (e.g. pnpm test app/utils/foo.test.ts)
+pnpm test -t "name"      # Run tests matching a name
+
+# Docs (separate pnpm workspace package `upage-docs`)
+pnpm docs:start          # Run docs dev server
+pnpm docs:build          # Build docs
 
 # Database
 pnpm setup               # Run Prisma migrate deploy + generate
@@ -69,7 +75,7 @@ Routes are defined explicitly in `app/routes.ts` (not file-system based). The ap
 - `/` — Home (chat list)
 - `/chat/:id` — Chat detail
 
-API routes are grouped under `/api/*` with prefixes for domains: `chat`, `project`, `deployments`, `github`, `vercel`, `netlify`, `1panel`, `auth`, `upload`, `enhancer`.
+API routes are grouped under `/api/*` with prefixes for domains: `chat`, `project`, `deployments`, `github`, `vercel`, `netlify`, `1panel`, `auth`, `upload`, `enhancer`, `design-system`, plus `user/settings` and `health`. User-uploaded assets are served at `assets/users/*` (`routes/assets/users.ts`).
 
 ### Server Architecture
 
@@ -123,6 +129,7 @@ Key models in `prisma/schema.prisma`:
 - Formatter: 2 spaces, single quotes, 120 line width, trailing commas.
 - Linter: Enforces `noUnusedImports`, `useConst`, `noVar`, `noExplicitAny` (in some overrides).
 - Organize imports is enabled.
+- A Husky `pre-commit` hook runs `pnpm typecheck` then `pnpm check:stage`; a commit is blocked if either fails.
 
 ### Vite
 
@@ -136,7 +143,9 @@ Key models in `prisma/schema.prisma`:
 Copy `.env.example` to `.env` for local development. Key variables:
 
 - `OPERATING_ENV` — `development` | `production` | `test`. Controls feature flags separate from `NODE_ENV`.
-- `LLM_PROVIDER`, `PROVIDER_BASE_URL`, `PROVIDER_API_KEY`, `LLM_DEFAULT_MODEL`, `LLM_MINOR_MODEL` — LLM configuration.
+- `LLM_PROVIDER`, `PROVIDER_BASE_URL`, `PROVIDER_API_KEY`, `LLM_DEFAULT_MODEL`, `LLM_MINOR_MODEL` — LLM configuration. `LLM_DEFAULT_MODEL` builds pages; `LLM_MINOR_MODEL` handles auxiliary tasks (summarization, pre-analysis).
+- `LLM_VISION_PROVIDER`, `LLM_VISION_MODEL`, `VISION_PROVIDER_BASE_URL`, `VISION_PROVIDER_API_KEY` — Optional vision sidecar. Configure only when the default model can't read images; UPage uses it to generate visual summaries of uploaded reference images.
+- `SERPER_API_KEY`, `WEATHER_API_KEY` — Enable the optional Serper search and weather page-builder tools.
 - `LOGTO_ENDPOINT`, `LOGTO_APP_ID`, `LOGTO_APP_SECRET`, `LOGTO_BASE_URL`, `LOGTO_COOKIE_SECRET`, `LOGTO_ENABLE` — Authentication.
 - `STORAGE_DIR` — File upload storage path.
 - `MAX_UPLOAD_SIZE_MB` — Upload size limit.

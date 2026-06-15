@@ -183,7 +183,9 @@ export const Preview = memo(() => {
         ${headContent}
       </head>
       <body>
-        ${content}
+        <div id="page-content">
+          ${content}
+        </div>
       </body>
       </html>
     `;

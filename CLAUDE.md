@@ -59,8 +59,8 @@ pnpm docker:prod:run     # Docker Compose prod environment
 
 ### Directory Conventions
 
-- **`app/.client/`** — Client-only code. Components, hooks, client-side stores, and utilities that may import browser APIs. Never import from here in server-only code.
-- **`app/.server/`** — Server-only code. LLM orchestration (`llm/`), business services (`service/`), system prompts (`prompts/`), file storage (`storage/`), and server utilities. Never import from here in client-only code.
+- **`app/.client/`** — Client-only code. Components, hooks, client-side stores, and utilities that may import browser APIs. Never import from here in server-only code. Notable subdir: `runtime/` parses the LLM's streamed output (`message-parser.ts`, `structured-message.ts`) and applies it to the editor (`action-runner.ts`, `page-change-coordinator.ts`); `persistence/` handles client-side save/load.
+- **`app/.server/`** — Server-only code. LLM orchestration (`llm/`), business services (`service/`), system prompts (`prompts/`), file storage (`storage/`), shared modules (`modules/`), and server utilities. Never import from here in client-only code.
 - **`app/routes/`** — React Router routes. Page routes render UI; `api/` subdirectories contain resource routes (loaders/actions).
 - **`app/routes.ts`** — Centralized flat route configuration. Uses `prefix()` and `route()` helpers from `@react-router/dev/routes`.
 - **`app/types/`** — Shared TypeScript type definitions.
@@ -91,8 +91,8 @@ API routes are grouped under `/api/*` with prefixes for domains: `chat`, `projec
 
 The core AI logic lives here:
 
-- **`agents/page-builder.ts`** — Main agent runtime entry point. Prepares steps, controls the tool loop, and coordinates the page builder session.
-- **`agents/page-builder-tools.ts`** — Registers the page-builder toolset used by the main agent, including optional tools such as Serper search and weather.
+- **`agents/page-builder.ts`** — Main agent runtime entry point. Prepares steps, controls the tool loop, and coordinates the page builder session. Drafting, guarding, context assembly, and generation are split into `page-builder-draft.ts`, `page-builder-guard.ts`, `page-builder-context.ts`, and `page-generation.ts`.
+- **`agents/page-builder-tools.ts`** — Registers the page-builder toolset. Mutation tools live in `page-builder-mutation-tools.ts`; optional tools (Serper search, weather — defined under `llm/tools/`) in `page-builder-optional-tools.ts`.
 - **`prompts/prompts.ts`** — System prompts for page generation.
 - **`select-context.ts`** — Selects relevant context from chat history for the current request.
 - **`structured-page-snapshot.ts`** — Parses and structures the LLM's page output.

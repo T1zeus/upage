@@ -20,6 +20,7 @@ import { aiState } from '~/.client/stores/ai-state';
 import { type WebBuilderViewType, webBuilderStore } from '~/.client/stores/web-builder';
 import { cubicEasingFn } from '~/.client/utils/easings';
 import { renderLogger } from '~/.client/utils/logger';
+import type { Section } from '~/types/actions';
 import type { PageData, PageMap } from '~/types/pages';
 import { DiffView } from './DiffView';
 import { EditorPanel } from './EditorPanel';
@@ -133,7 +134,7 @@ export const WebBuilder = memo(() => {
     const projectData = await handleLoadProject();
     const pages = projectData.pages;
     const pageMap = Object.fromEntries(pages.map((page) => [page.name, page])) as PageMap;
-    webBuilderStore.setPages(pageMap);
+    webBuilderStore.setPages(pageMap, projectData.sections);
     webBuilderStore.chatStore.setCurrentMessageId(projectData.messageId);
   }, []);
 
@@ -147,12 +148,17 @@ export const WebBuilder = memo(() => {
   }, []);
 
   // 处理保存的数据，将其转为编辑器可直接使用的格式
-  const handleLoadProject = useCallback(async (): Promise<{ messageId?: string; pages: PageData[] }> => {
+  const handleLoadProject = useCallback(async (): Promise<{
+    messageId?: string;
+    pages: PageData[];
+    sections?: Section[];
+  }> => {
     const projectData = await chatHistory?.getLoadProject?.();
     if (projectData?.pages) {
       return {
         messageId: projectData.messageId,
         pages: projectData.pages,
+        sections: projectData.sections,
       };
     }
     return {

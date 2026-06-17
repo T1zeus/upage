@@ -212,6 +212,19 @@ export const PageRender = forwardRef<PageRenderRef, EditorRenderProps>(
       [onUpdate, document.name],
     );
 
+    // 供 overlay 在结构性操作（移动/删除/拖拽/撤销）后主动触发保存。
+    // 必须先把最新 DOM 内容同步写入 store，再走真正的持久化，否则会存到旧内容。
+    const requestSave = useCallback(() => {
+      const iframeDocument = frameRef.current?.contentDocument;
+      if (!iframeDocument) {
+        return;
+      }
+      const editorContent = iframeDocument.getElementById('page-content');
+      const contentHTML = editorContent?.querySelector(`#page-${document.name}`) ?? null;
+      processContentUpdate(contentHTML);
+      handleSave();
+    }, [processContentUpdate, handleSave, document.name]);
+
     const setupMutationObserver = useCallback(() => {
       if (!frameRef.current) {
         return;
@@ -549,6 +562,7 @@ export const PageRender = forwardRef<PageRenderRef, EditorRenderProps>(
               hoveredElement={hoveredElement}
               setHoveredElement={setHoveredElement}
               setSelectedElement={setSelectedElement}
+              onRequestSave={requestSave}
             />
           </Frame>
         )}

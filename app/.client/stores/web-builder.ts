@@ -79,12 +79,20 @@ export class WebBuilderStore {
    * 手动设置页面数据，通常用于初始化页面数据。
    * @param pages 页面数据
    */
-  setPages(pages: PageMap) {
+  setPages(pages: PageMap, sections: Section[] = []) {
     const validPages = Object.fromEntries(
       Object.entries(pages).filter(([, page]) => page && page.name.trim().length > 0),
     ) as PageMap;
 
-    this.pagesStore.replaceSnapshot(validPages);
+    // 加载时一并恢复 sections，否则结构性手动编辑后 collectProjectData(strict) 会因
+    // sections 为空而拒绝保存，导致刷新后改动丢失。
+    const sectionMap = Object.fromEntries(
+      sections
+        .filter((section) => typeof section.pageName === 'string' && section.pageName.trim().length > 0)
+        .map((section) => [section.id, { ...section }]),
+    ) as SectionMap;
+
+    this.pagesStore.replaceSnapshot(validPages, sectionMap);
     this.editorStore.resetSnapshot(validPages);
   }
 

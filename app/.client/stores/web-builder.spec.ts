@@ -29,7 +29,7 @@ describe('WebBuilderStore.setPages', () => {
     );
 
     expect(replaceSnapshot).toHaveBeenCalledTimes(1);
-    expect(replaceSnapshot).toHaveBeenCalledWith(pages);
+    expect(replaceSnapshot).toHaveBeenCalledWith(pages, {});
     expect(resetSnapshot).toHaveBeenCalledTimes(1);
     expect(resetSnapshot).toHaveBeenCalledWith(pages);
   });

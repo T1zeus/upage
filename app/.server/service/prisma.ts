@@ -1,4 +1,4 @@
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
 // 创建PrismaClient实例
@@ -8,8 +8,8 @@ declare global {
   var __db: PrismaClient | undefined;
 }
 
-const adapter = new PrismaBetterSqlite3({
-  url: 'file:data/upage.db',
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL,
 });
 
 // 在开发环境中使用全局变量，避免热重载时创建多个实例

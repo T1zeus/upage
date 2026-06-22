@@ -107,7 +107,7 @@ async function uploadAsset({ request, userId }: { request: Request; userId: stri
     const formData = await request.formData();
     const file = formData.get('file');
     const messageId = formData.get('messageId') as string;
-    const pageId = formData.get('pageId') as string;
+    const pageName = formData.get('pageName') as string;
     const oldUrl = formData.get('oldUrl') as string | null;
 
     if (!file || !(file instanceof File)) {
@@ -118,9 +118,23 @@ async function uploadAsset({ request, userId }: { request: Request; userId: stri
       return errorResponse(400, '缺少 messageId 参数');
     }
 
-    if (!pageId) {
-      return errorResponse(400, '缺少 pageId 参数');
+    if (!pageName) {
+      return errorResponse(400, '缺少 pageName 参数');
     }
+
+    // 前端缓存的 pageId 会因页面重新生成而失效（PageV2 每次保存都会删除重建并分配新 uuid）。
+    // 因此不信任前端传来的 pageId，改用 messageId + pageName 在服务端解析当前 PageV2 的真实 id。
+    const page = await prisma.pageV2.findFirst({
+      where: { messageId, name: pageName },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true },
+    });
+
+    if (!page) {
+      return errorResponse(400, '页面尚未保存，请刷新后重试');
+    }
+
+    const pageId = page.id;
 
     const maxFileSize = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 

@@ -122,24 +122,6 @@ async function handleFork({ request, userId }: { request: Request; userId: strin
           {} as Record<string, any>,
         );
 
-        const pageToCreate = messagesToCopy
-          .filter((msg) => msg.page != null)
-          .map((msg) => {
-            const page = msg.page!;
-            return {
-              messageId: messageMapping[msg.id].id,
-              pages: JSON.parse(JSON.stringify(page.pages)),
-            };
-          });
-
-        // 批量创建 Page 项目数据
-        if (pageToCreate.length > 0) {
-          await tx.page.createMany({
-            data: pageToCreate,
-          });
-          logger.debug(`为聊天 ${newChat.id} 批量创建了 ${pageToCreate.length} 个Page项目`);
-        }
-
         // 收集需要创建的 PageV2 数据
         const pageV2ToCreate = [];
         for (const msg of messagesToCopy) {

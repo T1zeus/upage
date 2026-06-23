@@ -25,6 +25,18 @@ UPage 使用环境变量进行配置。您可以通过以下方式设置环境�
 | `MAX_UPLOAD_SIZE_MB` | 附件上传的最大大小 (MB) | `5` | 否 |
 | `STORAGE_DIR` | 资源文件存储位置 | `./public/uploads` | 否 |
 
+## 数据库配置
+
+UPage 使用 PostgreSQL 存储对话、页面与用户配置数据，需要通过 `DATABASE_URL` 指定连接串。
+
+| 环境变量 | 描述 | 默认值 | 必填 |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL 连接串，格式 `postgresql://用户:密码@主机:5432/库名?schema=public` | - | 是 |
+
+:::tip
+使用 Docker Compose 部署时，`DATABASE_URL` 通常指向编排内的数据库服务名（例如 `postgres:5432`）；使用 `docker run` 部署时，请指向数据库容器名或主机地址。可参考 [Docker Compose 部署](./deployment/docker-compose)。
+:::
+
 ## AI 提供商配置
 
 UPage 支持多种 AI 提供商，您需要配置一个 AI 提供商才能使用页面生成功能。
@@ -387,10 +399,28 @@ Logto 集成请参阅 [Logto 认证集成](./deployment/logto)文档。
 ```yaml
 version: "3.9"
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: upage
+      POSTGRES_PASSWORD: upage
+      POSTGRES_DB: upage
+    volumes:
+      - upage-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U upage -d upage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   upage:
     image: halo-dev/upage:latest
     container_name: upage
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
@@ -402,7 +432,10 @@ services:
       - USAGE_LOG_FILE=true
       - MAX_UPLOAD_SIZE_MB=10
       - STORAGE_DIR=/app/storage
-      
+
+      # 数据库配置
+      - DATABASE_URL=postgresql://upage:upage@postgres:5432/upage?schema=public
+
       # 使用 DeepSeek 提供商配置
       - LLM_PROVIDER=DeepSeek
       - PROVIDER_API_KEY=your-deepseek-api-key
@@ -421,9 +454,11 @@ services:
       - LOGTO_COOKIE_SECRET=your-cookie-secret
       - LOGTO_BASE_URL=http://localhost:3000
     volumes:
-      - ./data:/app/data
       - ./logs:/app/logs
       - ./storage:/app/storage
+
+volumes:
+  upage-pgdata:
 ```
 
 如果你要切换使用其他 AI 提供商，则只需要修改 `LLM_PROVIDER` 和相应的 API 密钥、Model 即可，例如：
@@ -448,7 +483,6 @@ services:
 
       # ...其他配置
     volumes:
-      - ./data:/app/data
       - ./logs:/app/logs
       - ./storage:/app/storage
 ``` 

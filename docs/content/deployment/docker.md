@@ -36,26 +36,51 @@ docker pull halohub/upage:1.0.0
 
 ### 准备目录
 
-创建必要的目录用于持久化数据，例如 `~/upage`：
+创建必要的目录用于持久化日志与上传文件，例如 `~/upage`：
 
 ```bash
-mkdir -p ~/upage/data
 mkdir -p ~/upage/logs
 mkdir -p ~/upage/storage
 ```
 :::tip
-UPage 所有数据与日志均存储在此目录中，请妥善保管。
+日志与上传的文件存储在此目录中，数据库数据则存储在命名卷 `upage-pgdata` 中，请妥善保管。
+:::
+
+### 启动 PostgreSQL
+
+UPage 使用 PostgreSQL 存储数据。先创建一个 Docker 网络，让数据库与应用容器互通，然后启动数据库容器：
+
+```bash
+# 创建供两个容器通信的网络
+docker network create upage-net
+
+# 启动 PostgreSQL 容器
+docker run -d \
+  --name upage-postgres \
+  --restart unless-stopped \
+  --network upage-net \
+  -e POSTGRES_USER=upage \
+  -e POSTGRES_PASSWORD=upage \
+  -e POSTGRES_DB=upage \
+  -v upage-pgdata:/var/lib/postgresql/data \
+  postgres:17-alpine
+```
+
+:::tip
+如果不想手动管理两个容器，推荐使用 [Docker Compose 部署](./docker-compose)，它会自动编排数据库与应用。
 :::
 
 ### 启动容器
 
-使用以下命令启动 UPage 容器：
+使用以下命令启动 UPage 容器（通过 `DATABASE_URL` 连接到上面的 `upage-postgres` 容器）：
 
 ```bash
 docker run -d \
   --name upage \
   --restart unless-stopped \
+  --network upage-net \
   -p 3000:3000 \
+  -e DATABASE_URL=postgresql://upage:upage@upage-postgres:5432/upage?schema=public \
   -e LLM_PROVIDER=OpenAI \
   -e PROVIDER_BASE_URL=your-openai-api-base-url \
   -e PROVIDER_API_KEY=your-openai-api-key \
@@ -65,7 +90,6 @@ docker run -d \
   -e LLM_VISION_MODEL=your-vision-model \
   -e VISION_PROVIDER_BASE_URL=your-vision-provider-base-url \
   -e VISION_PROVIDER_API_KEY=your-vision-provider-api-key \
-  -v ~/upage/data:/app/data \
   -v ~/upage/logs:/app/logs \
   -v ~/upage/storage:/app/storage \
   halohub/upage:latest
@@ -104,6 +128,7 @@ UPage 支持通过环境变量进行配置。以下是一些比较重要的环�
 
 | 环境变量 | 描述 | 默认值 |
 | --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL 连接串（**必填**），格式 `postgresql://用户:密码@主机:5432/库名?schema=public` | - |
 | `PORT` | 服务监听端口 | `3000` |
 | `NODE_ENV` | Node.js 环境 | `production` |
 | `OPERATING_ENV` | 运行环境 | `production` |
@@ -156,7 +181,9 @@ docker rm upage
 docker run -d \
   --name upage \
   --restart unless-stopped \
+  --network upage-net \
   -p 3000:3000 \
+  -e DATABASE_URL=postgresql://upage:upage@upage-postgres:5432/upage?schema=public \
   -e LLM_PROVIDER=OpenAI \
   -e PROVIDER_BASE_URL=your-openai-api-base-url \
   -e PROVIDER_API_KEY=your-openai-api-key \
@@ -166,11 +193,14 @@ docker run -d \
   -e LLM_VISION_MODEL=your-vision-model \
   -e VISION_PROVIDER_BASE_URL=your-vision-provider-base-url \
   -e VISION_PROVIDER_API_KEY=your-vision-provider-api-key \
-  -v ~/upage/data:/app/data \
   -v ~/upage/logs:/app/logs \
   -v ~/upage/storage:/app/storage \
   halohub/upage:latest
 ```
+
+:::tip
+升级时只重建 `upage` 应用容器即可，`upage-postgres` 数据库容器无需停止；数据库数据保存在 `upage-pgdata` 卷中，不会因应用容器重建而丢失。
+:::
 
 ## 下一步
 

@@ -32,23 +32,13 @@ UPage 适合各类需要快速创建网页的用户，包括但不限于：
 
 ### 如何安装 UPage？
 
-UPage 提供多种安装方式，最简单的方法是使用 Docker：
+UPage 需要配合 PostgreSQL 数据库运行，最简单的安装方式是使用 Docker Compose，它会同时编排数据库与应用：
 
 ```bash
-docker run -d \
-  --name upage \
-  --restart unless-stopped \
-  -p 3000:3000 \
-  -e LLM_PROVIDER=OpenAI \
-  -e PROVIDER_BASE_URL=your-openai-api-base-url \
-  -e PROVIDER_API_KEY=your-openai-api-key \
-  -e LLM_DEFAULT_MODEL=your-default-model \
-  -e LLM_MINOR_MODEL=your-minor-model \
-  -v ./data:/app/data \
-  -v ./logs:/app/logs \
-  -v ./storage:/app/storage \
-  halo-dev/upage:latest
+docker-compose -f docker-compose-prod.yaml up -d
 ```
+
+如需使用 `docker run` 单独管理容器，请先启动 PostgreSQL 容器并通过 `DATABASE_URL` 连接，详见[Docker 部署](./deployment/docker)文档。
 
 详细的安装说明请参考[快速开始](./quick-start)文档。
 
@@ -170,19 +160,21 @@ UPage 支持多种 AI 提供商，包括：
 
 ### UPage 如何存储数据？
 
-UPage 使用 SQLite 数据库存储页面数据和用户配置，存储在挂载的 `data` 目录中。上传的文件和资源存储在挂载的 `storage` 目录中。日志文件存储在挂载的 `logs` 目录中。
+UPage 使用 PostgreSQL 数据库存储页面数据和用户配置。数据库以 `postgres` 服务运行，数据持久化在命名卷 `upage-pgdata` 中。上传的文件和资源存储在挂载的 `storage` 目录中。日志文件存储在挂载的 `logs` 目录中。
 
 ### 如何备份 UPage 数据？
 
-备份 UPage 数据的最简单方法是备份挂载的数据目录：
+备份 UPage 数据需要分别备份 PostgreSQL 数据库和存储目录：
 
 ```bash
-# 备份数据目录
-tar -czf upage-data-backup-$(date +%Y%m%d).tar.gz ./data
+# 备份 PostgreSQL 数据库（通过 postgres 服务导出为 SQL）
+docker-compose -f docker-compose-prod.yaml exec -T postgres pg_dump -U upage upage > upage-db-backup-$(date +%Y%m%d).sql
 
-# 备份存储目录
+# 备份存储目录（上传的文件和资源）
 tar -czf upage-storage-backup-$(date +%Y%m%d).tar.gz ./storage
 ```
+
+> 提示：如果修改了默认的数据库用户名或库名，请将命令中的 `-U upage` 与 `upage` 替换为实际值。
 
 ### UPage 如何处理用户隐私？
 
@@ -223,15 +215,16 @@ cat logs/combined-*.log
 
 如果遇到数据库相关错误，可以尝试：
 
-1. 检查数据目录的权限：`chmod -R 755 ./data`
-2. 备份并重新初始化数据库：
+1. 查看数据库日志，确认 PostgreSQL 是否正常运行：`docker-compose -f docker-compose-prod.yaml logs postgres`
+2. 检查 `DATABASE_URL` 环境变量是否正确配置，确保主机、端口、用户名、密码与数据库名均与 `postgres` 服务一致
+3. 确认应用容器能够连接到数据库（两者需在同一 Docker 网络中，且数据库已通过健康检查）
+4. 如果数据库结构损坏且无重要数据，可重置数据库（**会清空所有数据，请先备份**）：
    ```bash
-   # 备份当前数据库
-   cp ./data/upage.db ./data/upage.db.bak
-   
-   # 删除并重新初始化
-   rm ./data/upage.db
-   docker restart upage
+   # 停止服务并删除数据库卷（upage-pgdata）
+   docker-compose -f docker-compose-prod.yaml down -v
+
+   # 重新启动，迁移会自动重建数据库结构
+   docker-compose -f docker-compose-prod.yaml up -d
    ```
 
 ### 容器无法启动怎么办？

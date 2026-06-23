@@ -54,14 +54,15 @@ export async function recordUsage(params: ChatUsageParams) {
     outputTokens = 0,
     cachedTokens = 0,
     reasoningTokens = 0,
+    totalTokens: totalTokensParam,
     status,
     prompt,
     metadata,
     modelName,
   } = params;
 
-  // 计算总token量
-  const totalTokens = inputTokens + outputTokens;
+  // 总token量优先采用调用方传入的权威值（模型返回），缺省时按输入+输出回退估算
+  const totalTokens = totalTokensParam ?? inputTokens + outputTokens;
 
   try {
     // 创建记录

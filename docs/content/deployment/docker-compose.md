@@ -27,13 +27,12 @@ title: Docker Compose 部署
 创建必要的目录用于持久化数据，例如 `~/upage`：
 
 ```bash
-mkdir -p ~/upage/data
 mkdir -p ~/upage/logs
 mkdir -p ~/upage/storage
 cd ~/upage
 ```
 :::tip
-UPage 所有数据与日志均存储在此目录中，请妥善保管。
+日志与上传的文件存储在此目录中，数据库数据则存储在命名卷 `upage-pgdata` 中，请妥善保管。
 :::
 
 ### 创建配置文件
@@ -42,12 +41,31 @@ UPage 所有数据与日志均存储在此目录中，请妥善保管。
 ```yaml
 version: "3.9"
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-upage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-upage}
+      POSTGRES_DB: ${POSTGRES_DB:-upage}
+    volumes:
+      - upage-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-upage} -d ${POSTGRES_DB:-upage}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   upage:
     image: halohub/upage:latest
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${PORT:-3000}:3000"
     environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-upage}:${POSTGRES_PASSWORD:-upage}@postgres:5432/${POSTGRES_DB:-upage}?schema=public
       - LLM_PROVIDER=${LLM_PROVIDER}
       - PROVIDER_BASE_URL=${PROVIDER_BASE_URL}
       - PROVIDER_API_KEY=${PROVIDER_API_KEY}
@@ -58,13 +76,16 @@ services:
       - VISION_PROVIDER_BASE_URL=${VISION_PROVIDER_BASE_URL}
       - VISION_PROVIDER_API_KEY=${VISION_PROVIDER_API_KEY}
     volumes:
-      - ./data:/app/data
       - ./logs:/app/logs
       - ./storage:/app/storage
 
 volumes:
-  upage-db:
+  upage-pgdata:
 ```
+
+:::tip
+`upage` 服务通过 `DATABASE_URL` 连接到同一编排中的 `postgres` 服务（主机名即服务名 `postgres`，端口 `5432`）。如需自定义数据库账号或库名，请同时设置 `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB`，`DATABASE_URL` 会自动引用它们。
+:::
 
 ### 启动服务
 

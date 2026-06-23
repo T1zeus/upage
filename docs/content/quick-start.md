@@ -22,13 +22,30 @@ title: 快速开始
 
 ## 使用 Docker 快速部署
 
-UPage 提供了官方 Docker 镜像，可以通过以下命令快速启动：
+UPage 提供了官方 Docker 镜像。由于 UPage 使用 PostgreSQL 存储数据，需要先启动一个数据库容器，再启动应用容器，两者通过同一 Docker 网络通信：
 
 ```bash
+# 1. 创建供两个容器通信的网络
+docker network create upage-net
+
+# 2. 启动 PostgreSQL 数据库
+docker run -d \
+  --name upage-postgres \
+  --restart unless-stopped \
+  --network upage-net \
+  -e POSTGRES_USER=upage \
+  -e POSTGRES_PASSWORD=upage \
+  -e POSTGRES_DB=upage \
+  -v upage-pgdata:/var/lib/postgresql/data \
+  postgres:17-alpine
+
+# 3. 启动 UPage 应用
 docker run -d \
   --name upage \
   --restart unless-stopped \
+  --network upage-net \
   -p 3000:3000 \
+  -e DATABASE_URL=postgresql://upage:upage@upage-postgres:5432/upage?schema=public \
   -e LLM_PROVIDER=OpenAI \
   -e PROVIDER_BASE_URL=your-openai-api-base-url \
   -e PROVIDER_API_KEY=your-openai-api-key \
@@ -38,14 +55,18 @@ docker run -d \
   -e LLM_VISION_MODEL=your-vision-model \
   -e VISION_PROVIDER_BASE_URL=your-vision-provider-base-url \
   -e VISION_PROVIDER_API_KEY=your-vision-provider-api-key \
-  -v ./data:/app/data \
   -v ./logs:/app/logs \
   -v ./storage:/app/storage \
   halohub/upage:latest
 ```
 
+:::tip
+如果觉得手动管理两个容器繁琐，推荐使用 [Docker Compose 部署](deployment/docker-compose)，一条命令即可同时启动数据库与应用。
+:::
+
 ### 参数说明
 
+- `-e DATABASE_URL=...`：PostgreSQL 连接串，指向上一步启动的 `upage-postgres` 容器（必填）
 - `-e LLM_PROVIDER=OpenAI`：设置默认的 LLM 提供商
 - `-e PROVIDER_BASE_URL=your-openai-api-base-url`：设置 API 基础 URL
 - `-e PROVIDER_API_KEY=your-openai-api-key`：设置 API 密钥
@@ -55,7 +76,6 @@ docker run -d \
 - `-e LLM_VISION_MODEL=your-vision-model`：视觉模型使用的模型
 - `-e VISION_PROVIDER_BASE_URL=your-vision-provider-base-url`：视觉模型的 API 基础 URL，部分提供商需要
 - `-e VISION_PROVIDER_API_KEY=your-vision-provider-api-key`：视觉模型的 API 密钥
-- `-v ./data:/app/data`：挂载数据目录，用于存储数据库文件
 - `-v ./logs:/app/logs`：挂载日志目录
 - `-v ./storage:/app/storage`：挂载存储目录，用于存储上传的文件。参考图片首次发送后会转成文件引用并在后续对话中复用，因此请不要使用临时目录。
 

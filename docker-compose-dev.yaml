@@ -1,11 +1,32 @@
 version: "3.9"
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-upage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-upage}
+      POSTGRES_DB: ${POSTGRES_DB:-upage}
+    volumes:
+      - upage-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-upage} -d ${POSTGRES_DB:-upage}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   upage:
     image: upage-ai:production
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${PORT:-3000}:3000"
     environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-upage}:${POSTGRES_PASSWORD:-upage}@postgres:5432/${POSTGRES_DB:-upage}?schema=public
       - OPERATING_ENV=${OPERATING_ENV:-production}
       - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-debug}
@@ -25,6 +46,9 @@ services:
       - USAGE_LOG_FILE=true
       - STORAGE_DIR=/app/storage
       - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-5}
+    volumes:
+      - ./logs:/app/logs
+      - ./storage:/app/storage
 
 volumes:
-  upage-db:
+  upage-pgdata:

@@ -83,59 +83,42 @@ create_temp_file() {
   echo "$temp_file"
 }
 
-safe_db_url() {
-  # 直接返回固定的数据库路径
-  echo "sqlite://data/upage.db"
-}
-
-# 设置数据库信息
-extract_db_info() {
-  DB_FILE="data/upage.db"
+# 校验数据库连接串是否已配置（不打印内容，避免泄露凭据）
+require_database_url() {
+  if [[ -z "$DATABASE_URL" ]]; then
+    log_error "未设置 DATABASE_URL 环境变量，无法连接 PostgreSQL"
+    return 1
+  fi
   return 0
 }
 
-# 检查数据库连接
-check_db_connection() {
-  log_info "检查 SQLite 数据库..."
-
-  if ! extract_db_info; then
-    return 1
-  fi
-
-  log_info "SQLite 数据库文件路径: $DB_FILE"
-
-  # 如果数据库文件已存在，检查是否可读写
-  if [[ -f "$DB_FILE" && ! -w "$DB_FILE" ]]; then
-    log_error "SQLite 数据库文件存在但不可写: $DB_FILE"
-    return 1
-  fi
-
-  # 验证 Prisma 配置
-  local output_file
-  output_file=$(create_temp_file)
-
-  if pnpm prisma validate --schema=./prisma/schema.prisma > "$output_file" 2>&1; then
-    log_success "Prisma 配置验证成功"
-  else
-    log_warn "Prisma 配置验证警告，但将继续执行:"
-    cat "$output_file"
-  fi
-
-  log_success "SQLite 数据库检查通过"
-  return 0
+# 探测数据库连通性：通过 Prisma 执行一次轻量 SELECT 1
+probe_db_connection() {
+  echo "SELECT 1;" | pnpm prisma db execute --stdin --schema=./prisma/schema.prisma > /dev/null 2>&1
 }
 
-# 等待数据库就绪
+# 等待 PostgreSQL 就绪（带重试）
 wait_for_db() {
-  log_info "准备 SQLite 数据库..."
+  log_info "等待 PostgreSQL 数据库就绪..."
 
-  if check_db_connection; then
-    log_success "SQLite 数据库就绪"
-    return 0
-  else
-    log_error "SQLite 数据库检查失败"
+  if ! require_database_url; then
     return 1
   fi
+
+  local attempt=1
+  while (( attempt <= MAX_DB_RETRIES )); do
+    if probe_db_connection; then
+      log_success "PostgreSQL 数据库连接成功（第 ${attempt} 次尝试）"
+      return 0
+    fi
+
+    log_warn "第 ${attempt}/${MAX_DB_RETRIES} 次连接失败，${DB_RETRY_INTERVAL}s 后重试..."
+    sleep "$DB_RETRY_INTERVAL"
+    (( attempt++ ))
+  done
+
+  log_error "在 ${MAX_DB_RETRIES} 次尝试后仍无法连接 PostgreSQL"
+  return 1
 }
 
 # 处理数据库迁移
@@ -230,11 +213,6 @@ main() {
   log_info "  - NODE_ENV: $NODE_ENV"
   log_info "  - 当前用户: $(whoami)"
   log_info "  - 工作目录: $(pwd)"
-
-  if extract_db_info; then
-    log_info "SQLite 数据库信息:"
-    log_info "  - 数据库文件: $DB_FILE"
-  fi
 
   if ! wait_for_db; then
     log_error "数据库连接失败，退出启动流程"

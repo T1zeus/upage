@@ -12,7 +12,7 @@ UPage is a visual web page building platform powered by LLMs. Users describe pag
 - **UI**: React 19, Radix UI primitives, Framer Motion, React DnD
 - **Styling**: UnoCSS (atomic CSS) with CSS custom properties for theming
 - **Server**: Custom Express server (`server.mjs`)
-- **Database**: Prisma ORM with SQLite (`better-sqlite3` adapter)
+- **Database**: Prisma ORM with PostgreSQL (`@prisma/adapter-pg` driver adapter over `pg`)
 - **State**: Nanostores (client), Prisma (server)
 - **Auth**: Logto OIDC
 - **AI**: Vercel AI SDK with multi-provider support
@@ -45,7 +45,8 @@ pnpm test -t "name"      # Run tests matching a name
 pnpm docs:start          # Run docs dev server
 pnpm docs:build          # Build docs
 
-# Database
+# Database (PostgreSQL)
+docker compose -f docker-compose.db.yaml up -d  # Start local Postgres (host port 5433) for `pnpm dev`
 pnpm setup               # Run Prisma migrate deploy + generate
 npx prisma migrate dev   # Create a new migration during development
 npx prisma generate      # Regenerate Prisma client
@@ -65,7 +66,7 @@ pnpm docker:prod:run     # Docker Compose prod environment
 - **`app/routes.ts`** — Centralized flat route configuration. Uses `prefix()` and `route()` helpers from `@react-router/dev/routes`.
 - **`app/types/`** — Shared TypeScript type definitions.
 - **`app/utils/`** — Isomorphic utilities safe to import from both client and server.
-- **`prisma/`** — Schema and migrations for SQLite.
+- **`prisma/`** — Prisma schema and PostgreSQL migrations. Local dev connects to the Postgres container defined in `docker-compose.db.yaml`; the runtime client (`app/.server/service/prisma.ts`) and Prisma CLI (`prisma.config.ts`) both read the connection string from `DATABASE_URL`.
 - **`icons/`** — Custom SVG icons consumed by UnoCSS `presetIcons` (collection name: `upage`).
 
 ### Route Structure
@@ -142,6 +143,7 @@ Key models in `prisma/schema.prisma`:
 
 Copy `.env.example` to `.env` for local development. Key variables:
 
+- `DATABASE_URL` — PostgreSQL connection string (required). For local dev with the bundled container: `postgresql://upage:upage@localhost:5433/upage?schema=public`.
 - `OPERATING_ENV` — `development` | `production` | `test`. Controls feature flags separate from `NODE_ENV`.
 - `LLM_PROVIDER`, `PROVIDER_BASE_URL`, `PROVIDER_API_KEY`, `LLM_DEFAULT_MODEL`, `LLM_MINOR_MODEL` — LLM configuration. `LLM_DEFAULT_MODEL` builds pages; `LLM_MINOR_MODEL` handles auxiliary tasks (summarization, pre-analysis).
 - `LLM_VISION_PROVIDER`, `LLM_VISION_MODEL`, `VISION_PROVIDER_BASE_URL`, `VISION_PROVIDER_API_KEY` — Optional vision sidecar. Configure only when the default model can't read images; UPage uses it to generate visual summaries of uploaded reference images.

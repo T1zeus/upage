@@ -246,10 +246,19 @@ export function convertToUIMessage(message: Message): ChatUIMessage {
 
   const parts: UIMessagePart<UPageDataParts, PageBuilderUITools>[] = [];
   if (message.role === 'user') {
-    const content = JSON.parse(message.content) as TextUIPart;
+    // 旧数据中部分 user 消息直接存了纯文本而非 JSON，解析失败时按纯文本处理，避免整个会话加载崩溃
+    let text = message.content;
+    try {
+      const content = JSON.parse(message.content) as TextUIPart;
+      if (content && typeof content.text === 'string') {
+        text = content.text;
+      }
+    } catch {
+      // 非 JSON 内容，保持原始纯文本
+    }
     parts.push({
       type: 'text',
-      text: content.text,
+      text,
     });
   } else {
     parts.push({

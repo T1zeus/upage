@@ -98,14 +98,23 @@ The core AI logic lives here:
 - **`structured-page-snapshot.ts`** — Parses and structures the LLM's page output.
 - **`storage/`** — Abstraction over file storage for generated projects, with local and future provider support.
 
+### EditorBridge (`app/.client/bridge/index.ts`)
+
+`EditorBridge` is a headless event bus that decouples the LLM runtime from the React editor UI. The LLM's `action-runner.ts` calls bridge methods (`createPage`, `updateSection`, `upsertPageAction`, etc.), which emit events that editor components subscribe to via `bridge.on(event, handler)`. It is initialized once client-side and kept alive across HMR via `import.meta.hot.data`.
+
 ### Database Models (Prisma)
 
 Key models in `prisma/schema.prisma`:
 
 - **`Chat`** — A conversation session. Has `urlId` (unique slug), `description`, `metadata`.
-- **`Message`** — Individual chat messages (user/assistant). Linked to `Chat`. Supports `isDiscarded` and `revisionId` for versioning.
+- **`Message`** — Individual chat messages (user/assistant). Linked to `Chat`. Supports `isDiscarded` and `revisionId` for versioning. Holds `parts` (JSON) for UI message structure.
+- **`PageV2`** — Current page model. A `Message` can have many `PageV2` rows (one per page). Stores `content` (HTML body), `name`, `title`, `sort`, and head-level tags (`headMeta`, `headLinks`, `headScripts`, `headStyles`, `headRaw`).
+- **`Section`** — Individual HTML sections within a `PageV2`. Linked to both `Message` and `PageV2`. Tracks `actionId`, `domId`, `rootDomId`, `placement` (head/body), and `sort`.
+- **`PageAsset`** — Files attached to a `PageV2` (CSS, images, etc.). Stores `storagePath`, `url`, `fileType`, `fileSize`.
 - **`Deployment`** — Deployment records (Vercel, Netlify, 1Panel, GitHub).
 - **`ChatUsage`** — Token usage tracking per message.
+- **`UserSetting`** — Per-user key/value settings, scoped by `category` (e.g. `profile`, `connectivity`, `services`). `isSecret` marks values like API keys.
+- **`Page`** — **Deprecated.** One-to-one with `Message`; superseded by `PageV2` + `Section`.
 
 ## Key Configuration
 

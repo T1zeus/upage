@@ -115,8 +115,6 @@ export const ImageEditor: React.FC<EditorProps> = ({ element, onClose }) => {
           throw new Error('当前页面尚未保存，无法上传资源');
         }
 
-        const pageId = currentPage.id;
-
         // 验证文件大小
         if (originalFile.size > maxFileSize) {
           const maxSizeMB = Math.round(maxFileSize / (1024 * 1024));
@@ -126,7 +124,7 @@ export const ImageEditor: React.FC<EditorProps> = ({ element, onClose }) => {
         const formData = new FormData();
         formData.append('file', originalFile);
         formData.append('messageId', currentMessageId);
-        formData.append('pageId', pageId);
+        formData.append('pageName', currentPageName);
 
         // 传递旧图片 URL，用于后端清理
         if (src && src !== previewSrc) {

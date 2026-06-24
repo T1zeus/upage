@@ -563,6 +563,7 @@ export const PageRender = forwardRef<PageRenderRef, EditorRenderProps>(
               setHoveredElement={setHoveredElement}
               setSelectedElement={setSelectedElement}
               onRequestSave={requestSave}
+              active={isCurrentPage}
             />
           </Frame>
         )}
